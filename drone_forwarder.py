@@ -3,14 +3,18 @@ import time
 import requests
 from pymavlink import mavutil
 
-# CONFIGURE THIS:
+# ------------------------
+# CONFIGURATION
+# ------------------------
 DRONE_ID = "Drone1"
-GCS_IP = "192.168.1.7"        # Replace with your Windows PC IP
-GCS_PORT = 14550              # Must match what your Flask backend listens to
-PIXHAWK_PORT = "/dev/ttyACM0" # Or /dev/ttyUSB0 if that's what Pixhawk shows up as
-BAUD_RATE = 57600
+GCS_IP = "100.113.240.132"      # VPN IP of your GCS (Windows PC)
+GCS_PORT = 14550                # Port GCS listens on
+PIXHAWK_PORT = "/dev/ttyACM0"   # Serial port to Pixhawk (check with `ls /dev/tty*`)
+BAUD_RATE = 57600               # Common baud rate for Pixhawk
 
-# Connect to Pixhawk over USB
+# ------------------------
+# CONNECT TO PIXHAWK
+# ------------------------
 print(f"[INFO] Connecting to Pixhawk on {PIXHAWK_PORT} at {BAUD_RATE} baud...")
 try:
     mav = mavutil.mavlink_connection(PIXHAWK_PORT, baud=BAUD_RATE)
@@ -19,11 +23,19 @@ except Exception as e:
     print(f"[ERROR] Cannot connect to Pixhawk: {e}")
     exit(1)
 
-# Connect to Ground Station via UDP
-udp = mavutil.mavlink_connection(f"udpout:{GCS_IP}:{GCS_PORT}")
-print(f"[INFO] Forwarding MAVLink to GCS at {GCS_IP}:{GCS_PORT}")
+# ------------------------
+# CONNECT TO GCS (UDP)
+# ------------------------
+try:
+    udp = mavutil.mavlink_connection(f"udpout:{GCS_IP}:{GCS_PORT}")
+    print(f"[INFO] Forwarding MAVLink to GCS at {GCS_IP}:{GCS_PORT}")
+except Exception as e:
+    print(f"[ERROR] Could not open UDP connection to GCS: {e}")
+    exit(1)
 
-# Register with GCS Flask server
+# ------------------------
+# REGISTER WITH GCS SERVER
+# ------------------------
 while True:
     try:
         requests.post(f"http://{GCS_IP}:5000/register", json={
@@ -36,13 +48,15 @@ while True:
         print(f"[WARN] GCS registration failed: {e}")
         time.sleep(3)
 
-# Forward loop
+# ------------------------
+# FORWARD MAVLINK (RAW BYTES)
+# ------------------------
 print("[INFO] Starting MAVLink forwarder loop...")
 while True:
     try:
-        msg = mav.recv_match(blocking=True)
-        if msg:
-            udp.mav.send(msg)
+        data = mav.recv(1024)
+        if data:
+            udp.write(data)
     except Exception as e:
-        print(f"[ERROR] Forwarding error: {e}")
+        print(f"[ERROR] Forwarding failed: {e}")
         time.sleep(1)
