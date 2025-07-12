@@ -1,3 +1,4 @@
+# backend/app.py
 from flask import Flask, request, jsonify, send_from_directory
 from flask_socketio import SocketIO, emit
 from dronekit import connect, VehicleMode
@@ -41,7 +42,8 @@ def handle_get_drones():
             'battery': getattr(v.battery, 'level', 0),
             'lat': getattr(v.location.global_frame, 'lat', 0),
             'lon': getattr(v.location.global_frame, 'lon', 0),
-            'armed': v.armed
+            'armed': v.armed,
+            'mode': v.mode.name
         }
     emit('drones', output)
 
@@ -65,6 +67,22 @@ def handle_toggle_arm(data):
         v.armed = not v.armed
         emit('status_update', {'drone_id': drone_id, 'armed': v.armed}, broadcast=True)
 
+@socketio.on('emergency_landing')
+def handle_emergency(data):
+    drone_id = data.get('drone_id')
+    if drone_id in drones:
+        v = drones[drone_id]['vehicle']
+        print(f"[ACTION] Emergency LAND for {drone_id}")
+        v.mode = VehicleMode("LAND")
+
+@socketio.on('return_to_home')
+def handle_rtl(data):
+    drone_id = data.get('drone_id')
+    if drone_id in drones:
+        v = drones[drone_id]['vehicle']
+        print(f"[ACTION] Return-to-Launch (RTL) for {drone_id}")
+        v.mode = VehicleMode("RTL")
+
 @socketio.on('start_telemetry')
 def start_telemetry():
     def loop():
@@ -77,6 +95,7 @@ def start_telemetry():
                     'battery': getattr(v.battery, 'level', 0),
                     'lat': getattr(v.location.global_frame, 'lat', 0),
                     'lon': getattr(v.location.global_frame, 'lon', 0),
+                    'mode': v.mode.name
                 }
                 socketio.emit('telemetry', data)
             time.sleep(2)
@@ -92,3 +111,4 @@ def launch_mission_planner(ip, port, local_port):
 
 if __name__ == '__main__':
     socketio.run(app, host='0.0.0.0', port=5000)
+
