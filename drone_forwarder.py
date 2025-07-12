@@ -11,7 +11,7 @@ import traceback
 DRONE_ID = "Drone1"
 GCS_IP = "110.113.114.176"       # Replace with your actual GCS IP
 GCS_PORT = 14550
-PIXHAWK_PORT = "/dev/ttyACM0"  # Could be /dev/ttyUSB0 on some systems
+PIXHAWK_PORT = "/dev/ttyACM0"    # Change if your Pixhawk is on /dev/ttyUSB0
 BAUD_RATE = 57600
 
 print(f"[INFO] Starting Drone Forwarder for {DRONE_ID}")
@@ -42,17 +42,13 @@ except Exception as e:
 # SEND GCS HEARTBEAT TO INITIATE HANDSHAKE
 # -------------------
 try:
-    mav_sender = mavlink2.MAVLink(udp)
-    mav_sender.srcSystem = 255
-    mav_sender.srcComponent = 0
-    heartbeat = mav_sender.heartbeat_encode(
+    udp.mav.heartbeat_send(
         type=mavlink2.MAV_TYPE_GCS,
         autopilot=mavlink2.MAV_AUTOPILOT_INVALID,
         base_mode=0,
         custom_mode=0,
         system_status=mavlink2.MAV_STATE_ACTIVE
     )
-    udp.write(heartbeat.pack())
     print("[INFO] GCS heartbeat sent to Pixhawk ✅")
 except Exception as e:
     print(f"[ERROR] Failed to send GCS heartbeat: {e}")
