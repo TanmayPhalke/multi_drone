@@ -1,120 +1,151 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Drone GCS Dashboard</title>
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css"/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
   <script src="https://cdn.socket.io/4.3.2/socket.io.min.js"></script>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <style>
     body { font-family: Arial, sans-serif; margin: 2em; }
-    table { width: 100%; border-collapse: collapse; margin-top: 1em; }
-    th, td { padding: 0.5em; border-bottom: 1px solid #ccc; }
-    button { padding: 6px 12px; }
-    .armed { color: red; font-weight: bold; }
-    .disarmed { color: green; font-weight: bold; }
     #map { height: 400px; margin-top: 2em; border: 1px solid #ccc; }
+    .notification { position: fixed; top: 20px; right: 20px; z-index: 1000; }
   </style>
 </head>
 <body>
-  <h1>🚁 Multi-Drone GCS Dashboard</h1>
+<div class="container">
+  <h1 class="text-center">🚁 Multi-Drone GCS Dashboard</h1>
 
-  <table>
-    <thead>
+  <div class="notification" id="notification"></div>
+
+  <table class="table table-bordered mt-4">
+    <thead class="thead-light">
       <tr>
-        <th>Drone ID</th><th>IP</th><th>Port</th>
-        <th>Battery</th><th>Altitude</th><th>Status</th><th>Action</th>
+        <th>Select</th>
+        <th>Drone ID</th>
+        <th>IP</th>
+        <th>Port</th>
+        <th>Battery</th>
+        <th>Altitude</th>
+        <th>Mode</th>
+        <th>Status</th>
+        <th>Actions</th>
       </tr>
     </thead>
     <tbody id="drone-list"></tbody>
   </table>
 
+  <div class="mb-3">
+    <button class="btn btn-success" onclick="sendCommand('launch_mp')">Launch Mission Planner</button>
+    <button class="btn btn-warning" onclick="sendCommand('toggle_arm')">Toggle Arm</button>
+    <button class="btn btn-danger" onclick="sendCommand('emergency_landing')">Emergency Land</button>
+    <button class="btn btn-info" onclick="sendCommand('return_to_home')">Return to Home</button>
+  </div>
+
   <div id="map"></div>
+</div>
 
-  <script>
-    const socket = io();
-    let droneData = {};
-    let markers = {};
-    const map = L.map('map').setView([20, 78], 5);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; OpenStreetMap contributors'
-    }).addTo(map);
+<script>
+  const socket = io();
+  let droneData = {};
+  let markers = {};
+  const map = L.map('map').setView([20, 78], 5);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(map);
 
-    function refreshDrones() {
-      socket.emit('get_drones');
+  function refreshDrones() {
+    socket.emit('get_drones');
+  }
+
+  function updateMap(id, lat, lon) {
+    if (markers[id]) {
+      markers[id].setLatLng([lat, lon]);
+    } else {
+      markers[id] = L.marker([lat, lon]).addTo(map).bindPopup(id);
     }
+  }
 
-    function launchMP(droneId) {
-      socket.emit('launch_mp', { drone_id: droneId });
+  function renderDrones() {
+    const tbody = document.getElementById('drone-list');
+    tbody.innerHTML = '';
+    Object.entries(droneData).forEach(([id, info]) => {
+      const row = document.createElement('tr');
+      const armStatus = info.armed ? 'ARMED' : 'DISARMED';
+      const armClass = info.armed ? 'text-danger font-weight-bold' : 'text-success font-weight-bold';
+      row.innerHTML = `
+        <td><input type="checkbox" class="drone-select" value="${id}"/></td>
+        <td>${id}</td>
+        <td>${info.ip}</td>
+        <td>${info.port}</td>
+        <td>${(info.battery || 0).toFixed(1)}%</td>
+        <td>${(info.altitude || 0).toFixed(1)} m</td>
+        <td>${info.mode || 'N/A'}</td>
+        <td class="${armClass}">${armStatus}</td>
+        <td>
+          <button class="btn btn-sm btn-outline-primary" onclick="launchMP('${id}')">MP</button>
+        </td>
+      `;
+      tbody.appendChild(row);
+    });
+  }
+
+  function sendCommand(command) {
+    const selected = Array.from(document.querySelectorAll('.drone-select:checked'))
+                         .map(cb => cb.value);
+    if (selected.length === 0) {
+      showNotification('Please select at least one drone.');
+      return;
     }
+    selected.forEach(id => {
+      socket.emit(command, { drone_id: id });
+    });
+    showNotification(`Command "${command}" sent to ${selected.length} drone(s).`);
+  }
 
-    function toggleArm(droneId) {
-      socket.emit('toggle_arm', { drone_id: droneId });
-    }
+  function launchMP(droneId) {
+    socket.emit('launch_mp', { drone_id: droneId });
+  }
 
-    function updateMap(id, lat, lon) {
-      if (markers[id]) {
-        markers[id].setLatLng([lat, lon]);
-      } else {
-        markers[id] = L.marker([lat, lon]).addTo(map).bindPopup(id);
-      }
-    }
+  function showNotification(msg) {
+    const n = document.getElementById('notification');
+    n.innerHTML = `<div class="alert alert-info">${msg}</div>`;
+    setTimeout(() => n.innerHTML = '', 3000);
+  }
 
-    function renderDrones() {
-      const tbody = document.getElementById('drone-list');
-      tbody.innerHTML = '';
-      Object.entries(droneData).forEach(([id, info]) => {
-        const row = document.createElement('tr');
-        const armStatus = info.armed ? 'ARMED' : 'DISARMED';
-        const armClass = info.armed ? 'armed' : 'disarmed';
-        row.innerHTML = `
-          <td>${id}</td>
-          <td>${info.ip}</td>
-          <td>${info.port}</td>
-          <td>${(info.battery || 0).toFixed(1)}%</td>
-          <td>${(info.altitude || 0).toFixed(1)} m</td>
-          <td class="${armClass}">${armStatus}</td>
-          <td>
-            <button onclick="launchMP('${id}')">Launch MP</button>
-            <button onclick="toggleArm('${id}')">Toggle Arm</button>
-          </td>
-        `;
-        tbody.appendChild(row);
-      });
-    }
+  socket.on('drones', (drones) => {
+    droneData = drones;
+    renderDrones();
+  });
 
-    socket.on('drones', (drones) => {
-      droneData = drones;
+  socket.on('telemetry', data => {
+    if (droneData[data.drone_id]) {
+      Object.assign(droneData[data.drone_id], data);
       renderDrones();
-    });
+      updateMap(data.drone_id, data.lat, data.lon);
+    }
+  });
 
-    socket.on('telemetry', data => {
-      const drone = droneData[data.drone_id];
-      if (drone) {
-        Object.assign(drone, data);
-        renderDrones();
-        updateMap(data.drone_id, data.lat, data.lon);
-      }
-    });
+  socket.on('status_update', data => {
+    if (droneData[data.drone_id]) {
+      droneData[data.drone_id].armed = data.armed;
+      renderDrones();
+    }
+  });
 
-    socket.on('status_update', data => {
-      if (droneData[data.drone_id]) {
-        droneData[data.drone_id].armed = data.armed;
-        renderDrones();
-      }
-    });
+  socket.on('mp_launched', data => {
+    showNotification(`Mission Planner launched for ${data.drone_id}`);
+  });
 
-    socket.on('mp_launched', data => {
-      alert(`Mission Planner launched for ${data.drone_id}`);
-    });
+  socket.on('error', e => {
+    showNotification('Error: ' + e.message);
+  });
 
-    socket.on('error', e => {
-      alert('Error: ' + e.message);
-    });
-
-    refreshDrones();
-    setInterval(refreshDrones, 5000);
-    socket.emit('start_telemetry');
-  </script>
+  refreshDrones();
+  setInterval(refreshDrones, 5000);
+  socket.emit('start_telemetry');
+</script>
 </body>
 </html>
