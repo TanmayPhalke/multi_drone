@@ -1,4 +1,3 @@
-# backend/app.py
 from flask import Flask, request, jsonify, send_from_directory
 from flask_socketio import SocketIO, emit
 from dronekit import connect, VehicleMode
@@ -93,4 +92,3 @@ def launch_mission_planner(ip, port, local_port):
 
 if __name__ == '__main__':
     socketio.run(app, host='0.0.0.0', port=5000)
-
