@@ -19,6 +19,10 @@ print(f"[INFO] Pixhawk port: {PIXHAWK_PORT}, GCS: {GCS_IP}:{GCS_PORT}")
 # ========== CONNECT TO PIXHAWK ==========
 try:
     mav = mavutil.mavlink_connection(PIXHAWK_PORT, baud=BAUD_RATE)
+    mav.mav.request_data_stream_send(
+    mav.target_system, mav.target_component,
+    mavutil.mavlink.MAV_DATA_STREAM_ALL, 10, 1)
+
     print(f"[OK] Connected to Pixhawk on {PIXHAWK_PORT}")
 except Exception as e:
     print(f"[ERROR] Cannot connect to Pixhawk: {e}")
