@@ -1,4 +1,3 @@
-# drone/drone_forwarder.py
 import time
 import requests
 from pymavlink import mavutil
@@ -38,15 +37,18 @@ except Exception as e:
 # ------------------------
 while True:
     try:
-        requests.post(f"http://{GCS_IP}:5000/register", json={
+        response = requests.post(f"http://{GCS_IP}:5000/register", json={
             'drone_id': DRONE_ID,
             'port': GCS_PORT
         })
-        print(f"[INFO] Registered {DRONE_ID} with GCS.")
-        break
+        if response.status_code == 200:
+            print(f"[INFO] Registered {DRONE_ID} with GCS.")
+            break
+        else:
+            print(f"[WARN] GCS registration failed: {response.text}")
     except Exception as e:
         print(f"[WARN] GCS registration failed: {e}")
-        time.sleep(3)
+    time.sleep(3)
 
 # ------------------------
 # FORWARD MAVLINK (RAW BYTES)
