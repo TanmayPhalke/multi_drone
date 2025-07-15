@@ -1,4 +1,22 @@
-'/register', methods=['POST'])
+# backend/app.py
+from flask import Flask, request, jsonify, send_from_directory
+from flask_socketio import SocketIO, emit
+from dronekit import connect, VehicleMode
+import subprocess
+import threading
+import time
+import traceback
+
+app = Flask(__name__, static_folder="../frontend")
+socketio = SocketIO(app, cors_allowed_origins="*")
+
+drones = {}  # drone_id: {vehicle, ip, port}
+
+@app.route('/')
+def serve_dashboard():
+    return send_from_directory(app.static_folder, 'index.html')
+
+@app.route('/register', methods=['POST'])
 def register():
     data = request.json
     drone_id = data.get('drone_id')
