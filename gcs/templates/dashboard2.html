@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>SynthAir Drone Command | Fleet Dashboard</title>
+  <meta http-equiv="refresh" content="5">
+  <style>
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      color: #e2e8f0;
+      padding: 2rem;
+      min-height: 100vh;
+    }
+    h2 {
+      color: #38bdf8;
+      font-weight: 600;
+      letter-spacing: -0.025em;
+      margin-bottom: 1.5rem;
+    }
+    .tabs {
+      display: flex;
+      margin-bottom: 1rem;
+    }
+    .tab {
+      padding: 1rem;
+      cursor: pointer;
+      background: rgba(30, 41, 59, 0.7);
+      border-radius: 6px;
+      margin-right: 1rem;
+      transition: background 0.3s;
+    }
+    .tab:hover {
+      background: rgba(30, 41, 59, 0.9);
+    }
+    .active {
+      background: rgba(30, 41, 59, 1);
+      font-weight: bold;
+    }
+    .content {
+      display: none;
+    }
+    .active-content {
+      display: block;
+    }
+    table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      background: rgba(30, 41, 59, 0.7);
+      backdrop-filter: blur(10px);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    }
+    th, td {
+      padding: 1rem 1.5rem;
+      text-align: center;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+    }
+    th {
+      background: rgba(15, 23, 42, 0.8);
+      color: #7dd3fc;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-size: 0.875rem;
+    }
+    tr:not(:last-child) td {
+      border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+    }
+    .status-online {
+      color: #4ade80;
+      font-weight: 500;
+    }
+    .status-offline {
+      color: #f87171;
+      font-weight: 500;
+    }
+    .gps-status {
+      font-size: 1.25rem;
+    }
+    button {
+      background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+      color: white;
+      border: none;
+      padding: 0.8rem 2rem;
+      font-size: 1rem;
+      font-weight: 500;
+      cursor: pointer;
+      margin-top: 2rem;
+      border-radius: 6px;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.2), 0 2px 4px -1px rgba(59, 130, 246, 0.06);
+    }
+    button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 15px -3px rgba(59, 130, 246, 0.3), 0 4px 6px -2px rgba(59, 130, 246, 0.15);
+    }
+    td video {
+      width: 200px;
+      max-height: 120px;
+      border-radius: 6px;
+      background: #000;
+    }
+  </style>
+</head>
+<body>
+  <h2>🛰️ Gajraj Drone Command Center</h2>
+  <div class="tabs">
+    <div class="tab active" onclick="showContent('dashboard')">Dashboard</div>
+    <div class="tab" onclick="showContent('video')">Video Stream</div>
+  </div>
+  
+  <div id="dashboard" class="content active-content">
+    <div class="dashboard-header">
+      <p class="fleet-stats">Active Fleet: <span class="stat-value">{{ drones|length }} Drones</span></p>
+      <p class="system-status">System Status: <span class="status-online">Operational</span></p>
+    </div>
+    <table>
+      <tr>
+        <th>ID</th>
+        <th>Status</th>
+        <th>Battery</th>
+        <th>GPS</th>
+        <th>Live Feed</th>
+        <th>Last Seen</th>
+      </tr>
+      {% for id, info in drones.items() %}
+      <tr>
+        <td>{{ id }}</td>
+        <td class="status-{{ 'online' if info.status == 'Online' else 'offline' }}">{{ info.status }}</td>
+        <td>{{ info.battery }}%</td>
+        <td class="gps-status">{{ '✅' if info.status == 'Online' and info.gps else '❌' }}</td>
+        <td>
+          {% if info.status == 'Online' %}
+          <!--
+		  <video width="200" controls>
+            <source src="udp://@:{{8000 + id|int}}" type="video/mp4">
+          </video>
+		  -->
+          {% else %}
+          <span>Offline</span>
+          {% endif %}
+        </td>
+        <td>{{ info.last_seen }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+    <button onclick="launchMissionPlanner()">Launch Mission Planner</button>
+  </div>
+
+  <div id="video" class="content">
+    <video controls autoplay>
+      <source src="udp://@:8001" type="video/mp4">
+      Your browser does not support the video tag.
+    </video>
+  </div>
+
+  <script>
+    function showContent(contentId) {
+      const contents = document.querySelectorAll('.content');
+      const tabs = document.querySelectorAll('.tab');
+
+      contents.forEach(content => {
+        content.classList.remove('active-content');
+      });
+      tabs.forEach(tab => {
+        tab.classList.remove('active');
+      });
+
+      document.getElementById(contentId).classList.add('active-content');
+      document.querySelector(`.tab[onclick="showContent('${contentId}')"]`).classList.add('active');
+    }
+
+    function launchMissionPlanner() {
+      // Attempt to open the Mission Planner application
+      alert('Please launch Mission Planner manually from your applications.');
+    }
+  </script>
+</body>
+</html>
